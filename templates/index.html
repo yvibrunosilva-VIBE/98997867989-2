@@ -1,0 +1,745 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VIBE estoque - Gestão de Peças & Rede de Academias</title>
+    <link rel="icon" type="image/png" href="/static/img/vibe_logo.png">
+    <!-- Google Fonts & Chart.js & Lucide Icons -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+
+    <!-- BARRA SUPERIOR -->
+    <header class="top-header">
+        <div class="header-brand">
+            <img src="/static/img/vibe_logo.png" class="brand-logo-img" alt="VIBE estoque">
+            <div class="brand-text">
+                <h1>VIBE <span>estoque</span></h1>
+                <p>Gestão de Peças & Rede de Academias</p>
+            </div>
+        </div>
+
+        <div class="header-user">
+            <div class="user-info">
+                <span id="current-user-name" class="user-name">Carregando...</span>
+                <span id="current-user-role" class="role-badge">ADMIN</span>
+            </div>
+            <button class="btn-icon" onclick="logout()" title="Sair da Sessão">
+                <i data-lucide="log-out"></i>
+            </button>
+        </div>
+    </header>
+
+    <div class="app-layout">
+        <!-- NAVEGAÇÃO LATERAL (SIDEBAR) -->
+        <aside class="sidebar">
+            <nav class="nav-menu">
+                <a href="#" class="nav-item active" data-tab="dashboard" onclick="showTab('dashboard')">
+                    <i data-lucide="layout-dashboard"></i>
+                    <span>Dashboard</span>
+                </a>
+                <a href="#" class="nav-item" data-tab="products" onclick="showTab('products')">
+                    <i data-lucide="package"></i>
+                    <span>Catálogo de Peças</span>
+                </a>
+                <a href="#" class="nav-item" data-tab="categories" onclick="showTab('categories')">
+                    <i data-lucide="tags"></i>
+                    <span>Categorias</span>
+                </a>
+                <a href="#" class="nav-item" data-tab="movements" onclick="showTab('movements')">
+                    <i data-lucide="arrow-left-right"></i>
+                    <span>Movimentações</span>
+                </a>
+                <a href="#" class="nav-item" data-tab="alerts" onclick="showTab('alerts')">
+                    <i data-lucide="alert-triangle"></i>
+                    <span>Alertas de Estoque</span>
+                    <span id="alert-badge-count" class="badge-count">0</span>
+                </a>
+                <a href="#" class="nav-item" data-tab="branches" onclick="showTab('branches')">
+                    <i data-lucide="building-2"></i>
+                    <span>Unidades da Rede</span>
+                </a>
+                <a href="#" class="nav-item admin-only" data-tab="settings" onclick="showTab('settings')">
+                    <i data-lucide="settings"></i>
+                    <span>Configurações & Usuários</span>
+                </a>
+                <a href="#" class="nav-item manager-only" data-tab="reports" onclick="showTab('reports')">
+                    <i data-lucide="file-spreadsheet"></i>
+                    <span>Relatórios & Exportação</span>
+                </a>
+            </nav>
+
+            <div class="sidebar-footer">
+                <div class="system-status">
+                    <span class="status-dot online"></span>
+                    <span>Sistema Conectado (v1.1)</span>
+                </div>
+            </div>
+        </aside>
+
+        <!-- ÁREA PRINCIPAL DE CONTEÚDO -->
+        <main class="main-content">
+            
+            <!-- TAB 1: DASHBOARD -->
+            <section id="tab-dashboard" class="tab-content active">
+                <div class="page-header">
+                    <div>
+                        <h2>Painel Principal de Controle</h2>
+                        <p>Visão geral do estoque de peças para a rede de academias</p>
+                    </div>
+                    <div class="header-actions">
+                        <button class="btn btn-primary btn-glow manager-only" onclick="openProductModal()">
+                            <i data-lucide="plus-circle"></i> + Cadastrar Novo Produto
+                        </button>
+                        <button class="btn btn-secondary" onclick="openMovementModal('SAIDA')">
+                            <i data-lucide="arrow-up-right"></i> Registrar Saída
+                        </button>
+                    </div>
+                </div>
+
+                <!-- CARDS DE METRICAS (KPIs) -->
+                <div class="kpi-grid">
+                    <div class="kpi-card">
+                        <div class="kpi-icon blue"><i data-lucide="boxes"></i></div>
+                        <div class="kpi-details">
+                            <span class="kpi-label">Total de SKUs Peças</span>
+                            <h3 id="kpi-total-skus">0</h3>
+                        </div>
+                    </div>
+                    <div class="kpi-card">
+                        <div class="kpi-icon green"><i data-lucide="package-check"></i></div>
+                        <div class="kpi-details">
+                            <span class="kpi-label">Itens Físicos em Estoque</span>
+                            <h3 id="kpi-total-items">0</h3>
+                        </div>
+                    </div>
+                    <div class="kpi-card">
+                        <div class="kpi-icon warning"><i data-lucide="alert-octagon"></i></div>
+                        <div class="kpi-details">
+                            <span class="kpi-label">Itens em Alerta Mínimo</span>
+                            <h3 id="kpi-low-stock">0</h3>
+                        </div>
+                    </div>
+                    <div class="kpi-card manager-only">
+                        <div class="kpi-icon purple"><i data-lucide="dollar-sign"></i></div>
+                        <div class="kpi-details">
+                            <span class="kpi-label">Valoração de Compra</span>
+                            <h3 id="kpi-purchase-value">R$ 0,00</h3>
+                        </div>
+                    </div>
+                    <div class="kpi-card manager-only">
+                        <div class="kpi-icon emerald"><i data-lucide="trending-up"></i></div>
+                        <div class="kpi-details">
+                            <span class="kpi-label">Valor Potencial de Repasse</span>
+                            <h3 id="kpi-sale-value">R$ 0,00</h3>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- SEÇÃO DE GRÁFICOS E MOVIMENTAÇÕES RECENTES -->
+                <div class="dashboard-grid">
+                    <div class="card chart-card">
+                        <div class="card-header">
+                            <h3><i data-lucide="pie-chart"></i> Distribuição por Categoria</h3>
+                        </div>
+                        <div class="card-body">
+                            <canvas id="chart-categories" height="220"></canvas>
+                        </div>
+                    </div>
+
+                    <div class="card recent-activity-card">
+                        <div class="card-header">
+                            <h3><i data-lucide="history"></i> Últimas Movimentações</h3>
+                            <a href="#" onclick="showTab('movements')" class="link-btn">Ver Todas</a>
+                        </div>
+                        <div class="card-body">
+                            <div id="recent-movements-list" class="activity-list">
+                                <!-- Preenchido dinamicamente -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- TAB 2: CATÁLOGO DE PEÇAS / ESTOQUE -->
+            <section id="tab-products" class="tab-content">
+                <div class="page-header">
+                    <div>
+                        <h2>Catálogo de Peças de Reposição</h2>
+                        <p>Gerencie o inventário de materiais de equipamentos, elétrica e escritório</p>
+                    </div>
+                    <div class="header-actions">
+                        <button class="btn btn-primary btn-glow manager-only" onclick="openProductModal()">
+                            <i data-lucide="plus-circle"></i> + Cadastrar Novo Produto
+                        </button>
+                    </div>
+                </div>
+
+                <!-- FILTROS DE BUSCA -->
+                <div class="filter-bar">
+                    <div class="search-input">
+                        <i data-lucide="search"></i>
+                        <input type="text" id="filter-search" placeholder="Buscar por código SKU, nome da peça ou prateleira..." oninput="loadProducts()">
+                    </div>
+                    <div class="filter-select">
+                        <select id="filter-category" onchange="loadProducts()">
+                            <option value="">Todas as Categorias</option>
+                        </select>
+                    </div>
+                    <div class="filter-select">
+                        <select id="filter-status" onchange="loadProducts()">
+                            <option value="">Todos os Status</option>
+                            <option value="ok">Estoque Normal</option>
+                            <option value="low">Abaixo do Mínimo</option>
+                            <option value="out">Esgotado (Zero)</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- TABELA DE PRODUTOS -->
+                <div class="card table-card">
+                    <div class="table-responsive">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>SKU</th>
+                                    <th>Nome da Peça / Especificação</th>
+                                    <th>Categoria</th>
+                                    <th>Saldo Atual</th>
+                                    <th>Estoque Mín.</th>
+                                    <th class="manager-only">Custo Compra</th>
+                                    <th class="manager-only">Preço Repasse</th>
+                                    <th>Localização</th>
+                                    <th>Status</th>
+                                    <th class="text-right">Ações</th>
+                                </tr>
+                            </thead>
+                            <tbody id="products-table-body">
+                                <!-- Preenchido dinamicamente -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <!-- TAB 3: GESTÃO DE CATEGORIAS -->
+            <section id="tab-categories" class="tab-content">
+                <div class="page-header">
+                    <div>
+                        <h2>Gestão de Categorias</h2>
+                        <p>Cadastre e organize as categorias de peças e suplementos da rede</p>
+                    </div>
+                    <div class="header-actions">
+                        <button class="btn btn-primary manager-only" onclick="openCategoryModal()">
+                            <i data-lucide="plus-circle"></i> + Nova Categoria
+                        </button>
+                    </div>
+                </div>
+
+                <div id="categories-grid" class="categories-grid">
+                    <!-- Preenchido dinamicamente -->
+                </div>
+            </section>
+
+            <!-- TAB 4: MOVIMENTAÇÕES (ENTRADA / SAÍDA) -->
+            <section id="tab-movements" class="tab-content">
+                <div class="page-header">
+                    <div>
+                        <h2>Histórico de Entrada e Saída</h2>
+                        <p>Auditoria completa de peças utilizadas nas manutenções das academias</p>
+                    </div>
+                    <div class="header-actions">
+                        <button class="btn btn-primary" onclick="openMovementModal('SAIDA')">
+                            <i data-lucide="minus-circle"></i> Registrar Saída
+                        </button>
+                        <button class="btn btn-secondary manager-only" onclick="openMovementModal('ENTRADA')">
+                            <i data-lucide="plus-circle"></i> Registrar Entrada
+                        </button>
+                    </div>
+                </div>
+
+                <div class="card table-card">
+                    <div class="table-responsive">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>Data / Hora</th>
+                                    <th>Tipo</th>
+                                    <th>SKU</th>
+                                    <th>Peça</th>
+                                    <th>Qtd.</th>
+                                    <th class="manager-only">Preço Unit.</th>
+                                    <th class="manager-only">Valor Total</th>
+                                    <th>Unidade Destino</th>
+                                    <th>Equipamento / Detalhes</th>
+                                    <th>Usuário</th>
+                                </tr>
+                            </thead>
+                            <tbody id="movements-table-body">
+                                <!-- Preenchido dinamicamente -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <!-- TAB 5: ALERTAS DE REPOSIÇÃO -->
+            <section id="tab-alerts" class="tab-content">
+                <div class="page-header">
+                    <div>
+                        <h2>Alertas de Reposição de Peças</h2>
+                        <p>Itens com estoque igual ou inferior ao nível mínimo de segurança</p>
+                    </div>
+                </div>
+
+                <div class="alerts-banner warning">
+                    <i data-lucide="alert-triangle"></i>
+                    <div>
+                        <strong>Atenção com a Manutenção Preventiva!</strong>
+                        <p>Os itens listados abaixo precisam de novos pedidos de compra para evitar paralisação de equipamentos nas academias.</p>
+                    </div>
+                </div>
+
+                <div class="card table-card">
+                    <div class="table-responsive">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>SKU</th>
+                                    <th>Peça / Produto</th>
+                                    <th>Categoria</th>
+                                    <th>Saldo Atual</th>
+                                    <th>Estoque Mín.</th>
+                                    <th>Diferença</th>
+                                    <th>Localização</th>
+                                    <th class="text-right">Ações</th>
+                                </tr>
+                            </thead>
+                            <tbody id="alerts-table-body">
+                                <!-- Preenchido dinamicamente -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <!-- TAB 6: UNIDADES DA REDE -->
+            <section id="tab-branches" class="tab-content">
+                <div class="page-header">
+                    <div>
+                        <h2>Rede de Academias</h2>
+                        <p>Unidades ativas para alocação de peças e manutenções de equipamentos</p>
+                    </div>
+                    <div class="header-actions">
+                        <button class="btn btn-primary admin-only" onclick="openBranchModal()">
+                            <i data-lucide="plus-circle"></i> + Cadastrar Nova Unidade
+                        </button>
+                    </div>
+                </div>
+
+                <div id="branches-grid" class="branches-grid">
+                    <!-- Preenchido dinamicamente -->
+                </div>
+            </section>
+
+            <!-- TAB 7: CONFIGURAÇÕES & USUÁRIOS (ADMIN ONLY) -->
+            <section id="tab-settings" class="tab-content admin-only">
+                <div class="page-header">
+                    <div>
+                        <h2>Configurações do Sistema & Personalização de Permissões</h2>
+                        <p>Gerencie a lista de usuários e personalize os módulos acessíveis por cada perfil</p>
+                    </div>
+                    <div class="header-actions">
+                        <button class="btn btn-primary" onclick="openUserModal()">
+                            <i data-lucide="user-plus"></i> Cadastrar Novo Usuário
+                        </button>
+                    </div>
+                </div>
+
+                <!-- SUB-NAVEGAÇÃO DE CONFIGURAÇÕES -->
+                <div class="subnav-bar">
+                    <button class="subnav-item active" data-subtab="users" onclick="showSettingsSubtab('users')">
+                        <i data-lucide="users"></i> Usuários Cadastrados
+                    </button>
+                    <button class="subnav-item" data-subtab="permissions" onclick="showSettingsSubtab('permissions')">
+                        <i data-lucide="shield-check"></i> Matriz de Permissões por Módulo
+                    </button>
+                </div>
+
+                <!-- SUB-TAB 1: USUÁRIOS -->
+                <div id="settings-subtab-users" class="settings-subtab active">
+                    <div class="card table-card">
+                        <div class="card-header">
+                            <h3><i data-lucide="users"></i> Usuários Cadastrados & Atribuídos</h3>
+                        </div>
+                        <div class="table-responsive">
+                            <table class="data-table">
+                                <thead>
+                                    <tr>
+                                        <th>ID</th>
+                                        <th>Nome Completo</th>
+                                        <th>Usuário (Login)</th>
+                                        <th>Email</th>
+                                        <th>Perfil / Permissão</th>
+                                        <th>Status</th>
+                                        <th class="text-right">Ações</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="users-table-body">
+                                    <!-- Preenchido dinamicamente -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- SUB-TAB 2: MATRIZ DE PERMISSÕES POR MODULO -->
+                <div id="settings-subtab-permissions" class="settings-subtab">
+                    <div class="card table-card">
+                        <div class="card-header" style="display:flex; justify-content:space-between; align-items:center;">
+                            <h3><i data-lucide="shield-check"></i> Personalização de Acesso aos Módulos</h3>
+                            <button class="btn btn-primary btn-glow" onclick="savePermissionsMatrix()">
+                                <i data-lucide="save"></i> Salvar Matriz de Permissões
+                            </button>
+                        </div>
+                        <div class="table-responsive">
+                            <table class="data-table permissions-matrix-table">
+                                <thead>
+                                    <tr>
+                                        <th>Módulo / Recurso do Sistema</th>
+                                        <th class="text-center">ADMIN<br><small class="text-muted">(Administrador)</small></th>
+                                        <th class="text-center">MANAGER<br><small class="text-muted">(Gerente)</small></th>
+                                        <th class="text-center">OPERATOR<br><small class="text-muted">(Técnico)</small></th>
+                                    </tr>
+                                </thead>
+                                <tbody id="permissions-matrix-body">
+                                    <!-- Preenchido dinamicamente -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- TAB 8: RELATÓRIOS & EXPORTAÇÃO (MANAGER ONLY) -->
+            <section id="tab-reports" class="tab-content manager-only">
+                <div class="page-header">
+                    <div>
+                        <h2>Relatórios & Exportação de Dados</h2>
+                        <p>Baixe os relatórios do sistema em formato CSV para análise no Excel</p>
+                    </div>
+                </div>
+
+                <div class="reports-grid">
+                    <div class="card report-card">
+                        <div class="report-icon"><i data-lucide="file-spreadsheet"></i></div>
+                        <h3>Relatório Completo de Estoque</h3>
+                        <p>Exporta a lista completa de peças, especificações, saldos, estoques mínimos, localização e valoração.</p>
+                        <a href="/api/export/csv?target=products" class="btn btn-primary" download>
+                            <i data-lucide="download"></i> Baixar CSV de Peças
+                        </a>
+                    </div>
+
+                    <div class="card report-card">
+                        <div class="report-icon"><i data-lucide="history"></i></div>
+                        <h3>Relatório de Movimentações</h3>
+                        <p>Exporta o histórico detalhado de todas as entradas e saídas de peças com registros de horário, unidades e técnicos.</p>
+                        <a href="/api/export/csv?target=movements" class="btn btn-primary" download>
+                            <i data-lucide="download"></i> Baixar CSV de Movimentações
+                        </a>
+                    </div>
+                </div>
+            </section>
+
+        </main>
+    </div>
+
+    <!-- MODAL: CADASTRAR / EDITAR PRODUTO -->
+    <div id="modal-product" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="modal-product-title">Cadastrar Peça de Reposição</h3>
+                <button class="modal-close" onclick="closeModal('modal-product')">&times;</button>
+            </div>
+            <form id="form-product" onsubmit="saveProduct(event)">
+                <input type="hidden" id="prod-id">
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label>Código SKU *</label>
+                        <input type="text" id="prod-code" required placeholder="Ex: EQP-005" style="text-transform:uppercase">
+                    </div>
+                    <div class="form-group">
+                        <label>Unidade de Medida</label>
+                        <select id="prod-unit">
+                            <option value="un">Unidade (un)</option>
+                            <option value="m">Metro (m)</option>
+                            <option value="par">Par (par)</option>
+                            <option value="cx">Caixa (cx)</option>
+                            <option value="kg">Quilo (kg)</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>Nome da Peça / Especificação *</label>
+                    <input type="text" id="prod-name" required placeholder="Ex: Lona para Esteira Movement LX160">
+                </div>
+
+                <div class="form-group">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.3rem;">
+                        <label style="margin-bottom:0">Categoria *</label>
+                        <button type="button" class="btn-link" onclick="openCategoryModal()" style="font-size:0.75rem">+ Nova Categoria</button>
+                    </div>
+                    <select id="prod-category" required>
+                        <!-- Opções dinâmicas -->
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label>Prateleira / Localização</label>
+                    <input type="text" id="prod-location" placeholder="Ex: Prateleira A1, Gaveta B2">
+                </div>
+
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label>Estoque Inicial</label>
+                        <input type="number" id="prod-current-stock" min="0" value="0">
+                    </div>
+                    <div class="form-group">
+                        <label>Estoque Mínimo (Alerta) *</label>
+                        <input type="number" id="prod-min-stock" min="0" required value="5">
+                    </div>
+                </div>
+
+                <div class="form-grid manager-only">
+                    <div class="form-group">
+                        <label>Custo de Compra (R$) *</label>
+                        <input type="number" step="0.01" id="prod-purchase-price" required value="0.00">
+                    </div>
+                    <div class="form-group">
+                        <label>Preço de Venda / Repasse (R$) *</label>
+                        <input type="number" step="0.01" id="prod-sale-price" required value="0.00">
+                    </div>
+                </div>
+
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" onclick="closeModal('modal-product')">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Salvar Peça</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL: CADASTRAR / EDITAR CATEGORIA -->
+    <div id="modal-category" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="modal-category-title">Adicionar Nova Categoria</h3>
+                <button class="modal-close" onclick="closeModal('modal-category')">&times;</button>
+            </div>
+            <form id="form-category" onsubmit="saveCategory(event)">
+                <input type="hidden" id="cat-id">
+                <div class="form-group">
+                    <label>Nome da Categoria *</label>
+                    <input type="text" id="cat-name" required placeholder="Ex: Equipamentos Cardio, Suplementos, Limpeza">
+                </div>
+                <div class="form-group">
+                    <label>Descrição</label>
+                    <input type="text" id="cat-description" placeholder="Ex: Peças para esteiras e bicicletas ergométricas">
+                </div>
+                <div class="form-group">
+                    <label>Ícone Representativo</label>
+                    <select id="cat-icon">
+                        <option value="dumbbell">Musculação / Equipamentos (Dumbbell)</option>
+                        <option value="zap">Elétrica (Lightning)</option>
+                        <option value="file-text">Escritório e TI (File)</option>
+                        <option value="droplet">Hidráulica / Climatização (Droplet)</option>
+                        <option value="sparkles">Limpeza (Sparkles)</option>
+                        <option value="folder">Geral / Outros (Folder)</option>
+                    </select>
+                </div>
+
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" onclick="closeModal('modal-category')">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Salvar Categoria</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL: REGISTRAR MOVIMENTAÇÃO (ENTRADA / SAÍDA) -->
+    <div id="modal-movement" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="modal-movement-title">Registrar Movimentação de Peça</h3>
+                <button class="modal-close" onclick="closeModal('modal-movement')">&times;</button>
+            </div>
+            <form id="form-movement" onsubmit="saveMovement(event)">
+                <input type="hidden" id="mov-type" value="SAIDA">
+
+                <div class="form-group">
+                    <label>Selecione a Peça *</label>
+                    <select id="mov-product-id" required onchange="updateProductStockInfo()">
+                        <!-- Preenchido dinamicamente -->
+                    </select>
+                </div>
+
+                <div class="stock-info-box" id="mov-stock-info">
+                    <span>Saldo Atual em Estoque: <strong id="mov-current-stock-val">0</strong></span>
+                </div>
+
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label>Quantidade *</label>
+                        <input type="number" id="mov-quantity" min="1" required value="1">
+                    </div>
+                    <div class="form-group">
+                        <label>Unidade da Academia *</label>
+                        <select id="mov-branch-id" required>
+                            <!-- Preenchido dinamicamente -->
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>Equipamento / Local de Aplicação</label>
+                    <input type="text" id="mov-destination" placeholder="Ex: Esteira Movement #04, Vestiário Masculino, Balcão Recepção">
+                </div>
+
+                <div class="form-group">
+                    <label>Observações / Motivo da Manutenção</label>
+                    <textarea id="mov-notes" rows="2" placeholder="Ex: Troca preventiva por ruído no rolamento"></textarea>
+                </div>
+
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" onclick="closeModal('modal-movement')">Cancelar</button>
+                    <button type="submit" class="btn btn-primary" id="btn-submit-movement">Confirmar Movimentação</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL: CADASTRAR / EDITAR USUÁRIO & PERMISSÕES -->
+    <div id="modal-user" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="modal-user-title">Cadastrar Novo Usuário</h3>
+                <button class="modal-close" onclick="closeModal('modal-user')">&times;</button>
+            </div>
+            <form id="form-user" onsubmit="saveUser(event)">
+                <input type="hidden" id="user-id">
+                <div class="form-group">
+                    <label>Nome Completo *</label>
+                    <input type="text" id="user-name" required placeholder="Ex: Maria Oliveira">
+                </div>
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label>Nome de Usuário (Login) *</label>
+                        <input type="text" id="user-username" required placeholder="Ex: maria.oliveira">
+                    </div>
+                    <div class="form-group">
+                        <label>Senha <span id="user-pass-note" style="font-weight:normal; font-size:0.7rem; color:var(--text-muted)">(preencha se desejar alterar)</span></label>
+                        <input type="password" id="user-password" placeholder="••••••••">
+                    </div>
+                </div>
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label>Email</label>
+                        <input type="email" id="user-email" placeholder="maria@gymfit.com">
+                    </div>
+                    <div class="form-group">
+                        <label>Nível de Acesso / Permissão (Role) *</label>
+                        <select id="user-role" required>
+                            <option value="OPERATOR">Técnico / Operador (Somente Saídas)</option>
+                            <option value="MANAGER">Gerente de Manutenção (Estoque + Entradas/Saídas)</option>
+                            <option value="ADMIN">Administrador Geral (Acesso Total)</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" onclick="closeModal('modal-user')">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Salvar Usuário</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL: CADASTRAR / EDITAR UNIDADE DA ACADEMIA -->
+    <div id="modal-branch" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="modal-branch-title">Cadastrar Unidade da Academia</h3>
+                <button class="modal-close" onclick="closeModal('modal-branch')">&times;</button>
+            </div>
+            <form id="form-branch" onsubmit="saveBranch(event)">
+                <input type="hidden" id="branch-id">
+                <div class="form-group">
+                    <label>Nome da Unidade *</label>
+                    <input type="text" id="branch-name" required placeholder="Ex: Unidade Moema - Zona Sul">
+                </div>
+                <div class="form-group">
+                    <label>Endereço Completo</label>
+                    <input type="text" id="branch-address" placeholder="Ex: Rua das Palmeiras, 450">
+                </div>
+                <div class="form-group">
+                    <label>Telefone de Contato</label>
+                    <input type="text" id="branch-phone" placeholder="Ex: (11) 5555-1234">
+                </div>
+
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" onclick="closeModal('modal-branch')">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Salvar Unidade</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL PORTA-FECHADURA (TELA DE LOGIN E AUTENTICAÇÃO OBRIGATÓRIA) -->
+    <div id="modal-lockscreen" class="modal lockscreen-modal active">
+        <div class="lockscreen-card">
+            <div class="lockscreen-header">
+                <img src="/static/img/vibe_logo.png" class="lockscreen-logo-img" alt="VIBE estoque">
+                <h2>VIBE <span>estoque</span></h2>
+                <p>Porta-Fechadura de Segurança • Digite seu Login e Senha</p>
+            </div>
+
+            <form id="form-login" onsubmit="performLogin(event)">
+                <div id="login-error-msg" class="login-error-box" style="display:none;"></div>
+
+                <div class="form-group">
+                    <label>Nome de Usuário (Login) *</label>
+                    <div class="input-with-icon">
+                        <i data-lucide="user"></i>
+                        <input type="text" id="login-username" required placeholder="Digite seu login (ex: victor.lyra)" autocomplete="username">
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>Senha de Acesso *</label>
+                    <div class="input-with-icon">
+                        <i data-lucide="key-round"></i>
+                        <input type="password" id="login-password" required placeholder="••••••••" autocomplete="current-password">
+                    </div>
+                </div>
+
+                <button type="submit" class="btn btn-primary btn-glow" style="width:100%; justify-content:center; margin-top:1rem;">
+                    <i data-lucide="log-in"></i> Desbloquear & Entrar no Sistema
+                </button>
+            </form>
+
+        </div>
+    </div>
+
+    <!-- CONTAINER DE NOTIFICAÇÕES (TOAST) -->
+    <div id="toast-container"></div>
+
+    <script src="/static/js/app.js"></script>
+</body>
+</html>
