@@ -964,6 +964,37 @@ body.role-manager .admin-only {
     padding-left: 2.8rem !important;
 }
 
+#login-password {
+    padding-right: 2.8rem !important;
+}
+
+.password-toggle {
+    position: absolute;
+    right: 0.5rem;
+    top: 50%;
+    transform: translateY(-50%);
+    border: none;
+    background: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    padding: 0.2rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1;
+}
+
+.password-toggle:hover {
+    color: var(--accent-blue);
+}
+
+.password-toggle i {
+    position: static;
+    display: block;
+    width: 18px;
+    height: 18px;
+}
+
 .login-error-box {
     background: rgba(239, 68, 68, 0.15);
     border: 1px solid rgba(239, 68, 68, 0.4);

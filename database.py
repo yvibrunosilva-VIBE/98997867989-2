@@ -149,16 +149,23 @@ def seed_initial_data(conn):
             VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
         ''', permissions_data)
 
-    # Usuarios iniciais (apenas 2 - acesso total via ADMIN)
-    cursor.execute('SELECT COUNT(*) FROM users')
-    if cursor.fetchone()[0] == 0:
-        users_data = [
-            ('victor.lyra', generate_password_hash('Lyra1538'), 'Victor Lyra', 'victor.lyra@gymfit.com', 'ADMIN'),
-            ('bruno.machado', generate_password_hash('Bsm1536'), 'Bruno Machado', 'bruno.machado@gymfit.com', 'ADMIN')
-        ]
-        cursor.executemany(
-            'INSERT INTO users (username, password_hash, name, email, role) VALUES (%s, %s, %s, %s, %s)',
-            users_data
+    # Garantir que os 2 usuários de login existam sempre, com a senha correta (upsert).
+    seed_users = [
+        ('victor.lyra', 'Lyra1538', 'Victor Lyra', 'victor.lyra@gymfit.com', 'ADMIN'),
+        ('bruno.machado', 'Bsm1536', 'Bruno Machado', 'bruno.machado@gymfit.com', 'ADMIN')
+    ]
+    for username, plain_password, name, email, role in seed_users:
+        cursor.execute(
+'''
+            INSERT INTO users (username, password_hash, name, email, role, active)
+            VALUES (%s, %s, %s, %s, %s, 1)
+            ON CONFLICT (username) DO UPDATE SET
+                password_hash = EXCLUDED.password_hash,
+                name = EXCLUDED.name,
+                email = EXCLUDED.email,
+                role = EXCLUDED.role,
+                active = 1
+'''
         )
 
     # Verificar se ja existem categorias

@@ -77,6 +77,21 @@ async function performLogin(e) {
     }
 }
 
+function togglePasswordVisibility() {
+    const input = document.getElementById('login-password');
+    const btn = document.getElementById('toggle-password-btn');
+    if (!input || !btn) return;
+
+    if (input.type === 'password') {
+        input.type = 'text';
+        btn.innerHTML = '<i data-lucide="eye-off"></i>';
+    } else {
+        input.type = 'password';
+        btn.innerHTML = '<i data-lucide="eye"></i>';
+    }
+    lucide.createIcons();
+}
+
 function updateUserRoleUI(user) {
     document.getElementById('current-user-name').textContent = user.name || user.username;
     const roleBadge = document.getElementById('current-user-role');
