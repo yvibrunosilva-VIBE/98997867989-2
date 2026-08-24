@@ -155,8 +155,8 @@ def seed_initial_data(conn):
         ('bruno.machado', 'Bsm1536', 'Bruno Machado', 'bruno.machado@gymfit.com', 'ADMIN')
     ]
     for username, plain_password, name, email, role in seed_users:
-        cursor.execute(
-'''
+                cursor.execute(
+            '''
             INSERT INTO users (username, password_hash, name, email, role, active)
             VALUES (%s, %s, %s, %s, %s, 1)
             ON CONFLICT (username) DO UPDATE SET
@@ -165,7 +165,8 @@ def seed_initial_data(conn):
                 email = EXCLUDED.email,
                 role = EXCLUDED.role,
                 active = 1
-'''
+            ''',
+            (username, generate_password_hash(plain_password), name, email, role)
         )
 
     # Verificar se ja existem categorias

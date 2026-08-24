@@ -1,0 +1,10 @@
+﻿ username, plain_password, name, email, role in seed_users:
+        cursor.execute(
+'''
+            INSERT INTO users (username, password_hash, name, email, role, active)
+            VALUES ([%%]s, [%%]s, [%%]s, [%%]s, [%%]s, 1)
+            ON CONFLICT (username) DO UPDATE SET
+                password_hash = EXCLUDED.password_hash,
+                name = EXCLUDED.name,
+                email = EXCLUDED.email,
+   
