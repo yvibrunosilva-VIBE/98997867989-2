@@ -1,4 +1,4 @@
-import os
+﻿import os
 import csv
 import io
 import psycopg2
@@ -6,6 +6,27 @@ import psycopg2.extras
 import psycopg2.errorcodes
 from flask import Flask, render_template, request, jsonify, session, Response
 from werkzeug.security import check_password_hash, generate_password_hash
+from flask_socketio import SocketIO, emit
+import database
+
+app = Flask(__name__)
+# Em producao (Railway), configure a variavel de ambiente SECRET_KEY.
+# O valor abaixo e apenas fallback para desenvolvimento local.
+app.secret_key = os.environ.get('SECRET_KEY', 'gymcontrol_super_secret_key_2026')
+
+# Inicializa Flask-SocketIO com Redis como message_queue (escala multi-processo)
+message_queue = os.environ.get('REDIS_URL', None)
+socketio = SocketIO(app, cors_allowed_origins="*", async_mode='eventlet' if message_queue else 'polling', message_queue=message_queue)
+
+# Funcao auxiliar para broadcast de atualizacoes via WebSocket
+def broadcast_update(event_type, data=None):
+    """Emite um evento de atualizacao para todos os clientes conectados."""
+    if data is None:
+        data = {}
+    data['event_type'] = event_type
+    socketio.emit('update_data', data, broadcast=True)
+
+# Garantir inicializacao do Banco de Dados
 from functools import wraps
 import database
 
@@ -259,8 +280,9 @@ def create_product():
             RETURNING id
         ''', (code, name, category_id, unit, current_stock, min_stock, purchase_price, sale_price, location))
         product_id = cur.fetchone()[0]
-        conn.commit()
+                conn.commit()
         conn.close()
+        broadcast_update('products')
         return jsonify({'message': 'Peca cadastrada com sucesso!', 'id': product_id}), 201
     except psycopg2.errors.UniqueViolation:
         conn.rollback()
@@ -288,9 +310,10 @@ def update_product(product_id):
         UPDATE products
         SET name = %s, category_id = %s, unit = %s, min_stock = %s, purchase_price = %s, sale_price = %s, location = %s
         WHERE id = %s
-    ''', (name, category_id, unit, min_stock, purchase_price, sale_price, location, product_id))
+        ''', (name, category_id, unit, min_stock, purchase_price, sale_price, location, product_id))
     conn.commit()
     conn.close()
+    broadcast_update('products')
 
     return jsonify({'message': 'Produto atualizado com sucesso.'})
 
@@ -308,6 +331,7 @@ def delete_product(product_id):
     cur.execute('DELETE FROM products WHERE id = %s', (product_id,))
     conn.commit()
     conn.close()
+    broadcast_update('products')
     return jsonify({'message': 'Produto removido com sucesso.'})
 
 # --- API DE MOVIMENTACOES ---
@@ -392,12 +416,14 @@ def create_movement():
         cur.execute('''
             INSERT INTO movements (product_id, type, quantity, unit_price, total_price, branch_id, destination_equipment, notes, user_id)
             VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
-        ''', (product_id, mov_type, quantity, unit_price, total_price, branch_id, destination_equipment, notes, user_id))
+                ''', (product_id, mov_type, quantity, unit_price, total_price, branch_id, destination_equipment, notes, user_id))
 
         cur.execute('UPDATE products SET current_stock = %s WHERE id = %s', (new_stock, product_id))
 
         conn.commit()
         conn.close()
+        broadcast_update('movements')
+        broadcast_update('products')
 
         return jsonify({
             'message': f'Movimentacao de {mov_type} concluida com sucesso!',
@@ -445,8 +471,9 @@ def create_category():
             (name, description, icon)
         )
         cat_id = cur.fetchone()[0]
-        conn.commit()
+                conn.commit()
         conn.close()
+        broadcast_update('categories')
         return jsonify({'message': 'Categoria criada com sucesso!', 'id': cat_id, 'name': name}), 201
     except psycopg2.errors.UniqueViolation:
         conn.rollback()
@@ -469,9 +496,10 @@ def update_category(category_id):
     cur.execute(
         'UPDATE categories SET name = %s, description = %s, icon = %s WHERE id = %s',
         (name, description, icon, category_id)
-    )
+        )
     conn.commit()
     conn.close()
+    broadcast_update('categories')
     return jsonify({'message': 'Categoria atualizada com sucesso!'})
 
 @app.route('/api/categories/<int:category_id>', methods=['DELETE'])
@@ -488,6 +516,7 @@ def delete_category(category_id):
     cur.execute('DELETE FROM categories WHERE id = %s', (category_id,))
     conn.commit()
     conn.close()
+    broadcast_update('categories')
     return jsonify({'message': 'Categoria excluida com sucesso!'})
 
 # --- API DE UNIDADES DA ACADEMIA ---
@@ -522,6 +551,7 @@ def create_branch():
         )
         conn.commit()
         conn.close()
+        broadcast_update('branches')
         return jsonify({'message': 'Unidade cadastrada com sucesso!'}), 201
     except psycopg2.errors.UniqueViolation:
         conn.rollback()
@@ -547,6 +577,7 @@ def update_branch(branch_id):
     )
     conn.commit()
     conn.close()
+    broadcast_update('branches')
     return jsonify({'message': 'Unidade atualizada com sucesso!'})
 
 @app.route('/api/branches/<int:branch_id>', methods=['DELETE'])
@@ -563,6 +594,7 @@ def delete_branch(branch_id):
     cur.execute('DELETE FROM branches WHERE id = %s', (branch_id,))
     conn.commit()
     conn.close()
+    broadcast_update('branches')
     return jsonify({'message': 'Unidade excluida com sucesso!'})
 
 # --- API DE USUARIOS & PERMISSOES ---
@@ -596,10 +628,11 @@ def create_user():
         cur = conn.cursor()
         cur.execute(
             'INSERT INTO users (username, password_hash, name, email, role) VALUES (%s, %s, %s, %s, %s)',
-            (username, pwd_hash, name, email, role)
+                        (username, pwd_hash, name, email, role)
         )
         conn.commit()
         conn.close()
+        broadcast_update('users')
         return jsonify({'message': 'Usuario cadastrado com sucesso!'}), 201
     except psycopg2.errors.UniqueViolation:
         conn.rollback()
@@ -630,10 +663,11 @@ def update_user(user_id):
         cur.execute(
             'UPDATE users SET name = %s, email = %s, role = %s WHERE id = %s',
             (name, email, role, user_id)
-        )
+                )
 
     conn.commit()
     conn.close()
+    broadcast_update('users')
     return jsonify({'message': 'Usuario e permissoes atualizados com sucesso!'})
 
 @app.route('/api/users/<int:user_id>/toggle', methods=['PUT'])
@@ -646,7 +680,7 @@ def toggle_user_active(user_id):
     cur = conn.cursor()
     cur.execute('SELECT active FROM users WHERE id = %s', (user_id,))
     user = cur.fetchone()
-    if not user:
+        if not user:
         conn.close()
         return jsonify({'error': 'Usuario nao encontrado.'}), 404
 
@@ -654,6 +688,7 @@ def toggle_user_active(user_id):
     cur.execute('UPDATE users SET active = %s WHERE id = %s', (new_status, user_id))
     conn.commit()
     conn.close()
+    broadcast_update('users')
     return jsonify({'message': 'Status do usuario alterado com sucesso!', 'new_status': new_status})
 
 # --- API DE GERENCIAMENTO DA MATRIZ DE PERMISSOES ---
@@ -704,9 +739,10 @@ def update_role_permissions(role_code):
         1 if data.get('users_manage') else 0,
         1 if data.get('reports_export') else 0,
         role_code
-    ))
+        ))
     conn.commit()
     conn.close()
+    broadcast_update('users')
 
     return jsonify({'message': f'Permissoes do perfil "{role_code}" atualizadas com sucesso!'})
 
@@ -752,7 +788,7 @@ def export_csv():
         writer.writerow(['Data/Hora', 'Tipo', 'SKU', 'Produto', 'Quantidade', 'Unidade', 'Preco Unitario', 'Preco Total', 'Unidade Academia', 'Equipamento/Destino', 'Usuario', 'Observacoes'])
         for m in movements:
             writer.writerow([m['timestamp'], m['type'], m['code'], m['product_name'], m['quantity'], m['unit'], f"{m['unit_price']:.2f}", f"{m['total_price']:.2f}", m['branch_name'] or '', m['destination_equipment'] or '', m['user_name'], m['notes'] or ''])
-        filename = "vibe_estoque_movimentacoes.csv"
+        filename = \"vibe_estoque_movimentacoes.csv\"
 
     conn.close()
 
@@ -760,7 +796,18 @@ def export_csv():
     response.headers['Content-Disposition'] = f'attachment; filename={filename}'
     return response
 
+# --- EVENTOS SOCKET.IO ---
+
+@socketio.on('connect')
+def handle_connect():
+    """Evento disparado quando um cliente se conecta ao WebSocket."""
+    emit('connected', {'status': 'conectado'})
+
+
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
     debug = os.environ.get('DEBUG', 'false').lower() == 'true'
-    app.run(host='0.0.0.0', port=port, debug=debug)
+    socketio.run(app, host='0.0.0.0', port=port, debug=debug)
+
+
+

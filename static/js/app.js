@@ -1,3 +1,4 @@
+window.currentTab = 'dashboard'; // Track current visible tab for realtime updates
 let currentUser = null;
 let productsList = [];
 let categoriesList = [];
@@ -5,12 +6,73 @@ let branchesList = [];
 let usersList = [];
 let categoryChart = null;
 
+// Initializa conexao WebSocket para sincronizacao em tempo real
+let socket = null;
+
+function initSocket() {
+    if (typeof io === 'undefined') return;
+    socket = io();
+
+    socket.on('connect', () => {
+        console.log('[Socket.IO] Conectado ao servidor.');
+    });
+
+    socket.on('update_data', (data) => {
+        console.log('[Socket.IO] Atualizacao recebida:', data);
+        handleRealtimeUpdate(data);
+    });
+
+    socket.on('disconnect', () => {
+        console.warn('[Socket.IO] Desconectado do servidor.');
+    });
+}
+
+// Manipula atualizacoes em tempo real recebidas via WebSocket
+function handleRealtimeUpdate(data) {
+    const eventType = data.event_type;
+    const allowedEvents = ['products', 'categories', 'branches', 'users', 'movements', 'dashboard', 'alerts', 'all'];
+
+    if (!allowedEvents.includes(eventType)) return;
+
+    const currentTab = window.currentTab || 'dashboard';
+
+    // Recarrega apenas os dados visíveis na tela atual
+    const reloadMap = {
+        products: loadProducts,
+        categories: loadCategories,
+        branches: loadBranches,
+        users: loadUsers,
+        movements: loadMovements,
+        dashboard: loadDashboard,
+        alerts: loadAlerts,
+        all: function() {
+            loadProducts();
+            loadCategories();
+            loadBranches();
+            loadUsers();
+            loadMovements();
+            loadDashboard();
+            loadAlerts();
+        }
+    };
+
+    if (eventType === 'all') {
+        reloadMap.all();
+    } else if (reloadMap[eventType] && (eventType === currentTab || eventType === 'alerts')) {
+        reloadMap[eventType]();
+        if (eventType === 'dashboard') loadAlerts();
+    }
+
+    showToast('Dados atualizados em tempo real.', 'info');
+}
+
 document.addEventListener('DOMContentLoaded', async () => {
     lucide.createIcons();
     const isAuth = await checkCurrentUser();
     if (isAuth) {
         await loadInitialMetadata();
         loadDashboard();
+        initSocket(); // Inicia conexao WebSocket
     }
 });
 
@@ -22,9 +84,11 @@ async function checkCurrentUser() {
         if (res.ok) {
             const data = await res.json();
             if (data.user) {
-                currentUser = data.user;
+                                currentUser = data.user;
                 updateUserRoleUI(currentUser);
                 closeModal('modal-lockscreen');
+                // Garante que a conexao WebSocket seja (re)iniciada apos login
+                if (!socket) initSocket();
                 return true;
             }
         }
@@ -56,13 +120,14 @@ async function performLogin(e) {
         });
         const data = await res.json();
 
-        if (res.ok) {
+                if (res.ok) {
             currentUser = data.user;
             updateUserRoleUI(currentUser);
             closeModal('modal-lockscreen');
             showToast(`Sessão iniciada como ${currentUser.name}`, 'success');
             await loadInitialMetadata();
             loadDashboard();
+            initSocket(); // Inicia conexao WebSocket após login
         } else {
             if (errorBox) {
                 errorBox.textContent = data.error || 'Usuário ou senha incorretos.';
@@ -159,6 +224,7 @@ function populateCategoryDropdowns() {
 // --- NAVEGAÇÃO DE ABAS ---
 
 function showTab(tabName) {
+    window.currentTab = tabName;
     document.querySelectorAll('.nav-item').forEach(item => {
         item.classList.toggle('active', item.dataset.tab === tabName);
     });
