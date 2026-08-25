@@ -691,6 +691,32 @@ def toggle_user_active(user_id):
     broadcast_update('users')
     return jsonify({'message': 'Status do usuario alterado com sucesso!', 'new_status': new_status})
 
+@app.route('/api/users/<int:user_id>', methods=['DELETE'])
+@permission_required('users_manage')
+def delete_user(user_id):
+    """Exclui um usuario (apenas ADMIN)."""
+    # Verificacao adicional: apenas ADMIN pode excluir
+    user_role = session.get('user_role', '')
+    if user_role != 'ADMIN':
+        return jsonify({'error': 'Apenas administradores podem excluir usuarios.'}), 403
+
+    if user_id == session.get('user_id'):
+        return jsonify({'error': 'Voce nao pode excluir sua propria conta.'}), 400
+
+    conn = database.get_db_connection()
+    cur = conn.cursor()
+    cur.execute('SELECT id FROM users WHERE id = %s', (user_id,))
+    user = cur.fetchone()
+    if not user:
+        conn.close()
+        return jsonify({'error': 'Usuario nao encontrado.'}), 404
+
+    cur.execute('DELETE FROM users WHERE id = %s', (user_id,))
+    conn.commit()
+    conn.close()
+    broadcast_update('users')
+    return jsonify({'message': 'Usuario excluido com sucesso!'})
+
 # --- API DE GERENCIAMENTO DA MATRIZ DE PERMISSOES ---
 
 @app.route('/api/permissions', methods=['GET'])
